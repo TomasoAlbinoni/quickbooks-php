@@ -297,8 +297,8 @@ class QuickBooks_IPP_IntuitAnywhere
 				$creds = $this->_driver->oauthLoadV2($this->_key, $app_tenant);
 			}
 
-			if ($creds['oauth_refresh_token'])
-			{
+			//if ($creds['oauth_refresh_token'])
+			//{
 				// Remove the access token
 				$ch = curl_init(self::URL_CONNECT_DISCONNECT);
 				curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -309,11 +309,12 @@ class QuickBooks_IPP_IntuitAnywhere
 					));
 				curl_exec($ch);
 				$info = curl_getinfo($ch);
+				//var_dump($info);
 				curl_close($ch);
-			}
+			//}
 
 			// Also try to revoke the refresh token
-			$ch = curl_init(self::URL_CONNECT_DISCONNECT);
+			/*$ch = curl_init(self::URL_CONNECT_DISCONNECT);
 			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 			curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array( 'token' => $creds['oauth_access_token'] )));
 			curl_setopt($ch, CURLOPT_USERPWD, $this->_client_id . ':' . $this->_client_secret);
@@ -322,7 +323,8 @@ class QuickBooks_IPP_IntuitAnywhere
 				));
 			$retr = curl_exec($ch);
 			$info = curl_getinfo($ch);
-			curl_close($ch);
+			var_dump($info);
+			curl_close($ch);*/
 
 			if ($info['http_code'] == 200 or $force)
 			{

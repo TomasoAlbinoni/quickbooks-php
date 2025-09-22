@@ -24,64 +24,56 @@ class QuickBooks_Encryption_Aes extends QuickBooks_Encryption
 {
 	static function encrypt($key, $plain, $salt = null)
 	{
-		if (is_null($salt))
-		{
+		if (is_null($salt)) {
 			$salt = QuickBooks_Encryption::salt();
 		}
-		
-		$plain = serialize(array( $plain, $salt ));
-		
-		$crypt = mcrypt_module_open('rijndael-256', '', 'ofb', '');
 
-		if (false !== stripos(PHP_OS, 'win') and 
-			version_compare(PHP_VERSION, '5.3.0')  == -1) 
-		{
-			$iv = mcrypt_create_iv(mcrypt_enc_get_iv_size($crypt), MCRYPT_RAND);	
-		}
-		else
-		{
-			$iv = mcrypt_create_iv(mcrypt_enc_get_iv_size($crypt), MCRYPT_DEV_URANDOM);
-		}
+		$plain = serialize([$plain, $salt]);
 
-		$ks = mcrypt_enc_get_key_size($crypt);
-		$key = substr(md5($key), 0, $ks);
-		
-		mcrypt_generic_init($crypt, $key, $iv);
-		$encrypted = base64_encode($iv . mcrypt_generic($crypt, $plain));
-		mcrypt_generic_deinit($crypt);
-		mcrypt_module_close($crypt);
-		
+		// Define cipher and key
+		$cipher = 'AES-256-OFB'; // OFB mode is supported by OpenSSL
+		$ivlen = openssl_cipher_iv_length($cipher);
+
+		// Generate a random IV
+		$iv = openssl_random_pseudo_bytes($ivlen);
+
+		// Hash and truncate the key to match required length
+		$key = substr(md5($key), 0, 32); // 32 bytes for AES-256
+
+		// Encrypt with raw binary output
+		$encrypted_raw = openssl_encrypt($plain, $cipher, $key, OPENSSL_RAW_DATA, $iv);
+
+		// Combine IV and encrypted data, then base64 encode
+		$encrypted = base64_encode($iv . $encrypted_raw);
+
 		return $encrypted;
 	}
 	
 	static function decrypt($key, $encrypted)
 	{
-		$crypt = mcrypt_module_open('rijndael-256', '', 'ofb', '');
-		$iv_size = mcrypt_enc_get_iv_size($crypt);
-		$ks = mcrypt_enc_get_key_size($crypt);
-		$key = substr(md5($key), 0, $ks);
-		
-		//print('before base64 [' . $encrypted . ']' . '<br />');
-		
+		// Define cipher and IV length
+		$cipher = 'AES-256-OFB';
+		$ivlen = openssl_cipher_iv_length($cipher);
+
+		// Hash and truncate the key to match required length
+		$key = substr(md5($key), 0, 32); // Or use hash('sha256', $key, true) for better security
+
+		// Decode the base64-encoded string
 		$encrypted = base64_decode($encrypted);
-		
-		//print('given key was: ' . $key);
-		//print('iv size: ' . $iv_size);
-		
-		//print('decrypting [' . $encrypted . ']' . '<br />');
-		
-		mcrypt_generic_init($crypt, $key, substr($encrypted, 0, $iv_size));
-		$decrypted = trim(mdecrypt_generic($crypt, substr($encrypted, $iv_size)));
-		mcrypt_generic_deinit($crypt);
-		mcrypt_module_close($crypt);
-		
-		//print('decrypted: [[**(' . $salt . ')');
-		//print_r($decrypted);
-		//print('**]]');
-			
-		$tmp = unserialize($decrypted);
-		$decrypted = current($tmp);
-		
+
+		// Extract IV and encrypted data
+		$iv = substr($encrypted, 0, $ivlen);
+		$ciphertext = substr($encrypted, $ivlen);
+
+		// Decrypt
+		$decrypted_raw = openssl_decrypt($ciphertext, $cipher, $key, OPENSSL_RAW_DATA, $iv);
+
+		// Unserialize and return the original data
+		$decrypted = null;	
+		$tmp = unserialize($decrypted_raw);
+		if ($tmp) {
+			$decrypted = current($tmp);
+		}
 		return $decrypted;
 	}
 }

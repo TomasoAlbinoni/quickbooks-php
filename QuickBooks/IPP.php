@@ -18,7 +18,7 @@
 
 if (!defined('QUICKBOOKS_IPP_MINORVERSION'))
 {
-	define('QUICKBOOKS_IPP_MINORVERSION', 68);
+	define('QUICKBOOKS_IPP_MINORVERSION', 75);
 }
 
 // Load the HTTP request class
@@ -659,13 +659,8 @@ class QuickBooks_IPP
 	 */
 	protected function _handleRenewal($force_renewal = false)
 	{
-		$this->_log('_handleRenewal(' . var_export($force_renewal, true) . ')', QUICKBOOKS_LOG_DEBUG);
-
 		static $was_renewed_during_this_session = false;
 		static $renewal_attempts = 0;
-
-		$this->_log('  Was renewed already? ' . var_export($was_renewed_during_this_session, true), QUICKBOOKS_LOG_DEBUG);
-		$this->_log('  Renewal attemps so far: ' . var_export($renewal_attempts, true), QUICKBOOKS_LOG_DEBUG);
 
 		$renewal_attempts++;
 
@@ -675,7 +670,6 @@ class QuickBooks_IPP
 			$this->_authmode == QuickBooks_IPP::AUTHMODE_OAUTHV2 and
 			$force_renewal)
 		{
-			$this->_log('Forced renewal, so renewal is needed!', QUICKBOOKS_LOG_DEBUG);
 			$needs_renewal = true;
 		}
 		else if (!$was_renewed_during_this_session and
@@ -683,21 +677,14 @@ class QuickBooks_IPP
 			$this->_authmode == QuickBooks_IPP::AUTHMODE_OAUTHV2 and
 			strtotime($this->_authcred['oauth_access_expiry']) - 60 < time())
 		{
-			$this->_log('Expired token, so renewal is needed!', QUICKBOOKS_LOG_DEBUG);
 			$needs_renewal = true;
 		}
 
-		$this->_log('  Do we need to renew? ' . var_export($needs_renewal, true), QUICKBOOKS_LOG_DEBUG);
-
 		if ($needs_renewal)
 		{
-			$this->_log('Attempting discover...', QUICKBOOKS_LOG_DEBUG);
-
 			if ($discover = QuickBooks_IPP_IntuitAnywhere::discover($this->_sandbox) and
 				!empty($this->_authcred['oauth_client_id']))
 			{
-				$this->_log('Attempting renewal...', QUICKBOOKS_LOG_DEBUG);
-
 				$ch = curl_init($discover['token_endpoint']);
 				curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 				curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);   // Do not follow; security risk here
@@ -729,18 +716,11 @@ class QuickBooks_IPP
 					// Replace our auth creds with the new ones
 					$this->_authcred = array_merge($this->_authcred, $this->_driver->oauthLoadV2($this->_key, $this->_authcred['app_tenant']));
 
-					$this->_log('  Renewal success! New token: ' . $json['access_token'], QUICKBOOKS_LOG_DEBUG);
-
 					// Successfully renewed!
 					return true;
 				}
-				else
-				{
-					$this->_log('  Renewal failed: ' . $info['http_code'] . ': ' . $retr, QUICKBOOKS_LOG_DEBUG);
-				}
 			}
 
-			$this->_log('  Discover failed!', QUICKBOOKS_LOG_DEBUG);
 			return false;
 		}
 
@@ -1142,29 +1122,16 @@ class QuickBooks_IPP
 
 		// If we got back a 401, indicating an expired token, we can renew and retry!
 		$info = $HTTP->lastInfo();
-		$this->_log('HTTP response code: ' . $info['http_code'], QUICKBOOKS_LOG_DEBUG);
-
-		if ($info['http_code'] == QuickBooks_HTTP::HTTP_401)
-		{
-			$this->_log('Caught HTTP 401 on response on token ' . $this->_authcred['oauth_access_token'] . ', will attempt renewal: ' . $return, QUICKBOOKS_LOG_DEBUG);
-		}
-
 		if ($info['http_code'] == QuickBooks_HTTP::HTTP_401 and
 			( false !== stripos($return, 'expired') or false !== stripos($return, 'AuthenticationFailed') ) and         // Expired OAuth token
 			$this->_authmode == QuickBooks_IPP::AUTHMODE_OAUTHV2 and
 			$this->_authcred['oauth_access_token'])
 		{
-			$this->_log('Forcing renewal...', QUICKBOOKS_LOG_DEBUG);
-
 			// Force renewal of the token _right now_
 			$renewed = $this->forceRenewal();
 
-			$this->_log('Attempted renewal...: ' . var_export($renewed, true), QUICKBOOKS_LOG_DEBUG);
-
 			if ($renewed)
 			{
-				$this->_log('Renewal success! Setting new token and re-attempting: ' . $this->_authcred['oauth_access_token'], QUICKBOOKS_LOG_DEBUG);
-
 				// Set the new token
 				$headers['Authorization'] = 'Bearer ' . $this->_authcred['oauth_access_token'];
 

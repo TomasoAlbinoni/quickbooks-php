@@ -87,12 +87,12 @@ class QuickBooks_Utilities
 		
 		foreach ($masks as $key)
 		{
-			if (substr($key, 0, 1) == '<')
+			if ($key[0] == '<')
 			{
 				// It's an XML tag
 				$contents = QuickBooks_Utilities::_extractTagContents(trim($key, '<> '), $message);
 				
-				$masked = str_repeat('x', min(strlen($contents), 12)) . substr($contents, 12);
+				$masked = str_repeat('x', min(strlen($contents ?? ''), 12)) . substr($contents ?? '', 12);
 				
 				$message = str_replace($key . $contents . '</' . trim($key, '<> ') . '>', $key . $masked . '</' . trim($key, '<> ') . '>', $message);
 			}
